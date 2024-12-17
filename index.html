@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="hu">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Online Trivia Játék</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <style>
+    body {
+      background: url("https://source.unsplash.com/1600x900/?christmas") no-repeat center center fixed;
+      background-size: cover;
+      font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+    }
+  </style>
+</head>
+
+<body class="flex items-center justify-center min-h-screen">
+  <div id="app" class="w-full max-w-md p-6 bg-white rounded-lg shadow-lg">
+    <!-- Login Screen -->
+    <div id="login-screen" class="text-center">
+      <h1 class="text-2xl font-bold text-red-800 mb-4">Bejelentkezés</h1>
+      <select id="user-select" class="w-full mb-4 p-2 border border-gray-300 rounded">
+        <option value="" disabled selected>Válassz felhasználót</option>
+        <option value="user1">Felhasználó 1</option>
+        <option value="user2">Felhasználó 2</option>
+        <option value="user3">Felhasználó 3</option>
+        <option value="user4">Felhasználó 4</option>
+        <option value="user5">Felhasználó 5</option>
+        <option value="user6">Felhasználó 6</option>
+        <option value="user7">Felhasználó 7</option>
+        <option value="user8">Felhasználó 8</option>
+        <option value="user9">Felhasználó 9</option>
+      </select>
+      <button id="login-button" class="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+        Belépés
+      </button>
+    </div>
+
+    <!-- Category Selection Screen -->
+    <div id="category-screen" class="hidden text-center">
+      <h1 class="text-2xl font-bold text-red-800 mb-4">
+        Kategóriák kiválasztása
+      </h1>
+      <div class="text-left mb-4">
+        <label class="block text-gray-700"><input type="checkbox" id="category-history" class="mr-2" />
+          Történelem</label>
+        <label class="block text-gray-700"><input type="checkbox" id="category-literature" class="mr-2" />
+          Irodalom</label>
+        <label class="block text-gray-700"><input type="checkbox" id="category-animals" class="mr-2" />
+          Állatok</label>
+        <label class="block text-gray-700"><input type="checkbox" id="category-movies" class="mr-2" />
+          Filmek/sorozatok</label>
+        <label class="block text-gray-700"><input type="checkbox" id="category-family" class="mr-2" checked disabled />
+          Család (kötelező)</label>
+      </div>
+      <button id="start-game" class="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+        Játék indítása
+      </button>
+    </div>
+
+    <!-- Question Screen -->
+    <div id="question-screen" class="hidden">
+      <h2 id="question-number" class="text-xl font-semibold text-red-800 mb-4"></h2>
+      <p id="question-text" class="text-gray-700 mb-6"></p>
+      <div id="answers" class="space-y-3">
+        <!-- Answer buttons will be dynamically inserted here -->
+      </div>
+      <button id="next-question" class="hidden mt-6 px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+        Következő kérdés
+      </button>
+    </div>
+
+    <!-- Result Screen -->
+    <div id="result-screen" class="hidden text-center">
+      <h2 class="text-2xl font-bold text-red-800 mb-4">Játék vége!</h2>
+      <p id="final-score" class="text-gray-700 mb-6"></p>
+      <h3 class="text-lg font-semibold text-red-800 mb-4">Eredménytábla</h3>
+      <ol id="leaderboard" class="text-left list-decimal pl-5">
+        <!-- Leaderboard will be populated dynamically -->
+      </ol>
+      <button id="restart-game" class="px-4 py-2 text-white bg-green-500 rounded hover:bg-green-600">
+        Újra játszom
+      </button>
+    </div>
+  </div>
+
+  <script>
+    const users = {
+      user1: { name: "Felhasználó 1", score: 0 },
+      user2: { name: "Felhasználó 2", score: 0 },
+      user3: { name: "Felhasználó 3", score: 0 },
+      user4: { name: "Felhasználó 4", score: 0 },
+      user5: { name: "Felhasználó 5", score: 0 },
+      user6: { name: "Felhasználó 6", score: 0 },
+      user7: { name: "Felhasználó 7", score: 0 },
+      user8: { name: "Felhasználó 8", score: 0 },
+      user9: { name: "Felhasználó 9", score: 0 },
+    };
+
+    let currentUser = null;
+    let selectedCategories = [];
+    let shuffledQuestions = [];
+    let currentQuestionIndex = 0;
+    let score = 0;
+    let mandatoryScore = 0;
+
+    const loginScreen = document.getElementById('login-screen');
+    const categoryScreen = document.getElementById('category-screen');
+    const questionScreen = document.getElementById('question-screen');
+    const resultScreen = document.getElementById('result-screen');
+
+    const loginButton = document.getElementById('login-button');
+    const startGameButton = document.getElementById('start-game');
+    const nextQuestionButton = document.getElementById('next-question');
+    const restartGameButton = document.getElementById('restart-game');
+    const userSelect = document.getElementById('user-select');
+
+    const questionNumber = document.getElementById('question-number');
+    const questionText = document.getElementById('question-text');
+    const answersDiv = document.getElementById('answers');
+    const finalScore = document.getElementById('final-score');
+    const leaderboard = document.getElementById('leaderboard');
+
+    const questions = {
+      history: [
+        { question: "Ki volt az első amerikai elnök?", answers: ["George Washington", "Thomas Jefferson", "Abraham Lincoln", "John Adams"], correct: 0 },
+        { question: "Mikor kezdődött a második világháború?", answers: ["1935", "1939", "1941", "1945"], correct: 1 },
+      ],
+      literature: [
+        { question: "Ki írta a 'Bűn és bűnhődés'-t?", answers: ["Dosztojevszkij", "Tolsztoj", "Kafka", "Móricz"], correct: 0 },
+        { question: "Melyik Shakespeare drámában szerepel Othello?", answers: ["Hamlet", "Rómeó és Júlia", "Othello", "Macbeth"], correct: 2 },
+      ],
+      animals: [
+        { question: "Melyik az emlősök osztályába tartozik?", answers: ["Bálna", "Kígyó", "Teknős", "Kacsa"], correct: 0 },
+        { question: "Melyik állatnak van szarva?", answers: ["Oroszlán", "Szarvas", "Ló", "Disznó"], correct: 1 },
+      ],
+      movies: [
+        { question: "Ki rendezte a 'Titanic'-ot?", answers: ["Steven Spielberg", "James Cameron", "Christopher Nolan", "Ridley Scott"], correct: 1 },
+        { question: "Melyik évben jelent meg a 'Gyűrűk Ura: A gyűrű szövetsége'?", answers: ["1999", "2001", "2003", "2005"], correct: 1 },
+      ],
+      family: [
+        { question: "Mi a családi kedvenc ünnepi étel?", answers: ["Halászlé", "Bejgli", "Töltött káposzta", "Pulyka"], correct: 2 },
+        { question: "Ki nyeri általában a társasjátékokat?", answers: ["Anya", "Apa", "Gyerekek", "Nagyszülők"], correct: 1 },
+      ]
+    };
+
+    loginButton.addEventListener('click', () => {
+      const selectedUser = userSelect.value;
+      if (selectedUser) {
+        currentUser = users[selectedUser];
+        loginScreen.classList.add('hidden');
+        categoryScreen.classList.remove('hidden');
+      }
+    });
+
+    startGameButton.addEventListener('click', () => {
+      selectedCategories = ['family'];
+      if (document.getElementById('category-history').checked) selectedCategories.push('history');
+      if (document.getElementById('category-literature').checked) selectedCategories.push('literature');
+      if (document.getElementById('category-animals').checked) selectedCategories.push('animals');
+      if (document.getElementById('category-movies').checked) selectedCategories.push('movies');
+
+      shuffledQuestions = selectedCategories.flatMap(cat => questions[cat]).sort(() => 0.5 - Math.random());
+      currentQuestionIndex = 0;
+      score = 0;
+      mandatoryScore = 0;
+
+      categoryScreen.classList.add('hidden');
+      questionScreen.classList.remove('hidden');
+      loadQuestion();
+    });
+
+    const loadQuestion = () => {
+      const questionData = shuffledQuestions[currentQuestionIndex];
+      questionNumber.textContent = `Kérdés ${currentQuestionIndex + 1}`;
+      questionText.textContent = questionData.question;
+      answersDiv.innerHTML = '';
+
+      questionData.answers.forEach((answer, index) => {
+        const button = document.createElement('button');
+        button.textContent = answer;
+        button.className = 'block w-full px-4 py-2 text-left bg-gray-200 rounded hover:bg-gray-300';
+        button.addEventListener('click', () => checkAnswer(index, questionData));
+        answersDiv.appendChild(button);
+      });
+
+      nextQuestionButton.classList.add('hidden');
+    };
+
+    const checkAnswer = (selectedIndex, questionData) => {
+      // Válaszok kiemelése
+      answersDiv.childNodes.forEach((btn, index) => {
+        if (index === questionData.correct) {
+          btn.classList.add('bg-green-200');
+        } else if (index === selectedIndex) {
+          btn.classList.add('bg-red-200');
+        } else {
+          btn.classList.add('bg-gray-200');
+        }
+        btn.disabled = true;
+      });
+
+      // Pontszám frissítése
+      if (selectedIndex === questionData.correct) {
+        score++;
+      }
+
+      // Kötelező családi kategória pontjának nyilvántartása
+      if (questionData.category === 'family') {
+        mandatoryScore++;
+      }
+
+      // Automatikusan léptetjük a következő kérdésre
+      setTimeout(() => {
+        nextQuestionButton.classList.remove('hidden');
+      }, 1000);
+    };
+
+
+
+
+
+    if (selectedIndex === questionData.correct) {
+      score++;
+    }
+
+    // Ensure mandatory category score is tracked
+    if (questionData.category === 'family') {
+      mandatoryScore++;
+    }
+
+    nextQuestionButton.classList.remove('hidden');
+
+    nextQuestionButton.addEventListener('click', () => {
+      currentQuestionIndex++;
+      if (currentQuestionIndex < shuffledQuestions.length) {
+        loadQuestion();
+      } else {
+        showResults();
+      }
+    });
+
+    const showResults = () => {
+      questionScreen.classList.add('hidden');
+      resultScreen.classList.remove('hidden');
+
+      finalScore.textContent = `Végső pontszám: ${score} / ${shuffledQuestions.length}`;
+
+      // Sort users by score and show leaderboard
+      const sortedUsers = Object.values(users).sort((a, b) => b.score - a.score);
+      leaderboard.innerHTML = '';
+      sortedUsers.forEach((user, index) => {
+        const listItem = document.createElement('li');
+        listItem.textContent = `${user.name}: ${user.score} pont`;
+        leaderboard.appendChild(listItem);
+      });
+    };
+
+    restartGameButton.addEventListener('click', () => {
+      resultScreen.classList.add('hidden');
+      loginScreen.classList.remove('hidden');
+      userSelect.value = ''; // Reset user selection
+    });
+  </script>
+</body>
+
+</html>
